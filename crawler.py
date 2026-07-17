@@ -5,7 +5,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 from devai_prefect.utils.hyperloop_context import hyperloop_file_transfer_context, setup_hyperloop_from_env
-from prefect import flow_run
+from prefect.runtime import flow_run
 
 
 def to_exclude(path: Path) -> bool:
@@ -47,7 +47,9 @@ def bfs(root: Path) -> Generator[str]:
 if __name__ == "__main__":
     transfer = setup_hyperloop_from_env()
     assert transfer is not None
-    dest_path = f"{os.environ['LOG_DEST']}/{flow_run.name}.log"
+    name = flow_run.get_name()
+    assert name is not None
+    dest_path = f"{os.environ['LOG_DEST']}/{name}.log"
     with hyperloop_file_transfer_context(dest_path, transfer, mode="w") as f:
         assert isinstance(f, io.TextIOBase)
         output = "\n".join(bfs(Path(sys.argv[1])))
