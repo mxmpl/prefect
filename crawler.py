@@ -15,7 +15,7 @@ def to_exclude(path: Path) -> bool:
         if path.is_dir():
             if (path / "CACHEDIR.tag").is_file():
                 return True
-            if path.name == "__pycache__":
+            if path.name in {"__pycache__", "site-packages"}:
                 return True
             if path.suffix == ".egg-info":
                 return True
@@ -47,7 +47,9 @@ def bfs(root: Path, max_depth: int | None = None, _depth: int = 0) -> Generator[
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
-    parser.add_argument("--max-depth", type=int, default=None, help="Max directory depth to descend into (unlimited by default)")
+    parser.add_argument(
+        "--max-depth", type=int, default=None, help="Max directory depth to descend into (unlimited by default)"
+    )
     args = parser.parse_args()
 
     transfer = setup_hyperloop_from_env()
