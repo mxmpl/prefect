@@ -1,6 +1,6 @@
+import argparse
 import io
 import os
-import sys
 from collections.abc import Generator
 from pathlib import Path
 
@@ -26,7 +26,7 @@ def to_exclude(path: Path) -> bool:
     return False
 
 
-def bfs(root: Path) -> Generator[str]:
+def bfs(root: Path, max_depth: int | None = None, _depth: int = 0) -> Generator[str]:
     to_visit = []
     try:
         for path in root.glob("*"):
@@ -34,17 +34,22 @@ def bfs(root: Path) -> Generator[str]:
                 continue
             yield str(path)
             try:
-                if path.is_dir():
+                if path.is_dir() and (max_depth is None or _depth < max_depth):
                     to_visit.append(path)
             except OSError:
                 pass
     except OSError:
         return
     for path in to_visit:
-        yield from bfs(path)
+        yield from bfs(path, max_depth, _depth + 1)
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=Path)
+    parser.add_argument("--max-depth", type=int, default=None, help="Max directory depth to descend into (unlimited by default)")
+    args = parser.parse_args()
+
     transfer = setup_hyperloop_from_env()
     assert transfer is not None
     name = flow_run.get_name()
@@ -52,5 +57,5 @@ if __name__ == "__main__":
     dest_path = f"{os.environ['LOG_DEST']}/{name}.log"
     with hyperloop_file_transfer_context(dest_path, transfer, mode="w") as f:
         assert isinstance(f, io.TextIOBase)
-        output = "\n".join(bfs(Path(sys.argv[1])))
+        output = "\n".join(bfs(args.root, args.max_depth))
         f.write(output)
