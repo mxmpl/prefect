@@ -1,0 +1,54 @@
+import io
+import os
+import sys
+from collections.abc import Generator
+from pathlib import Path
+
+from devai_prefect.utils.hyperloop_context import hyperloop_file_transfer_context, setup_hyperloop_from_env
+from prefect import flow_run
+
+
+def to_exclude(path: Path) -> bool:
+    if path.stem.startswith("."):
+        return True
+    try:
+        if path.is_dir():
+            if (path / "CACHEDIR.tag").is_file():
+                return True
+            if path.name == "__pycache__":
+                return True
+            if path.suffix == ".egg-info":
+                return True
+        if path.suffix in {".wav", ".flac", ".ogg", ".pyc"}:
+            return True
+    except OSError:
+        return False
+    return False
+
+
+def bfs(root: Path) -> Generator[str]:
+    to_visit = []
+    try:
+        for path in root.glob("*"):
+            if to_exclude(path):
+                continue
+            yield str(path)
+            try:
+                if path.is_dir():
+                    to_visit.append(path)
+            except OSError:
+                pass
+    except OSError:
+        return
+    for path in to_visit:
+        yield from bfs(path)
+
+
+if __name__ == "__main__":
+    transfer = setup_hyperloop_from_env()
+    assert transfer is not None
+    dest_path = f"{os.environ['LOG_DEST']}/{flow_run.name}.log"
+    with hyperloop_file_transfer_context(dest_path, transfer, mode="w") as f:
+        assert isinstance(f, io.TextIOBase)
+        output = "\n".join(bfs(Path(sys.argv[1])))
+        f.write(output)
